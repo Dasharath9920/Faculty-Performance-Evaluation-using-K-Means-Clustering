@@ -1,0 +1,245 @@
+#Faculty Performance Evaluation using K Means Clustering
+
+import pandas as pd
+import numpy as np
+from collections import defaultdict
+from random import randint as rand
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+
+original_dataset = pd.read_csv("Rate_my_professor.csv")
+convert_to_num = {'subject_knowledge' : {'excellent': 4, 'good':3, 'average': 2, 'poor':1},
+             'qualification' : {'Doctorate' : 4, 'Masters' : 3, 'Bachelors' : 2, 'Associate' : 1}}
+
+original_dataset.drop(original_dataset.index[65:19815],0, inplace = True)
+original_dataset.drop('grade',axis = 1, inplace=True)
+dataset = original_dataset.replace(convert_to_num)
+x = np.array(dataset)
+
+dataset.head(10)
+
+dataset.info()
+
+pca = PCA(n_components=2, whiten=False).fit(x)
+x_trans = pca.transform(x)
+
+x_trans
+
+plt.scatter(x_trans[:, 0], x_trans[:, 1])
+plt.show()
+
+sse = []
+for cluster in range(1,10):
+    km = KMeans(cluster)
+    km.fit(x)
+    sse.append(km.inertia_)
+frame = pd.DataFrame({'Cluster':range(1,10), 'sse':sse})
+
+plt.figure(figsize=(12,6))
+plt.plot(frame['Cluster'],frame['sse'],marker='o')
+plt.xlabel("No of clusters")
+plt.ylabel("Inertia")
+
+import math
+class k_means(object):
+    def __init__(self, K=2):
+        self.K = K
+    
+    @staticmethod
+    def new_centroids(clusters):
+        """
+        Returning updated centroids for each cluster
+        """
+        return [np.mean(i, axis=0) for i in clusters.values()]
+    
+    @classmethod
+    def clustering(cls, clusters, data, rd_points):
+        """
+        This function puts the data into their respective clusters
+        """
+        for i in data:
+            clusters[cls.lable(data_point=i, points=rd_points)].append(i)
+        return
+    
+    @classmethod 
+    def lable(cls, data_point, points):
+        """
+        This function returns the labels of a data point
+        """
+        values = [cls.euclid_dis(data_point, i) for i in points]
+        return min(range(len(values)), key=values.__getitem__)
+    
+    @classmethod
+    def centroids(cls, data, K):
+        """
+        Randomly selecting K indexes and make them our centroids
+        """
+        mean_p = np.mean(data, axis=0)
+        dist_log = []
+        result = []
+        while len(result) < K:
+            if not dist_log:
+                p = data[rand(0, K - 1)]
+                result.insert(0, p)
+                dist_log.insert(0, cls.euclid_dis(mean_p, p))
+            else:
+                for i in data:
+                    p = i
+                    if np.any(result == p):
+                        continue
+                    d = cls.euclid_dis(p, result[0])
+                    if d > dist_log[0]:
+                        result.insert(0, p)
+                        dist_log.insert(0, cls.euclid_dis(mean_p, p))
+                        break
+        return result    
+    
+    
+        
+    @staticmethod
+    def euclid_dis(x, y):
+        S = 0
+        for i in range(len(x)): 
+            S += math.pow(x[i]-y[i], 2)
+  
+        return math.sqrt(S)
+
+    def labels(self):
+        """
+        This function returns the labels of each and every data point in the
+        dataset
+        """
+        r = []
+        for i in self.data:
+            r.append(k_means.lable(i, self.points))
+        return np.array(r)
+        
+    def fit(self, data):
+        rd_points = k_means.centroids(data, K=self.K) 
+        counter = False
+        clusters = None
+        change_log = []
+        self.data = data
+        iteration = 1
+        while counter is False:
+            print("iteration {}".format(iteration))
+            clusters = defaultdict(list)
+            
+            k_means.clustering(clusters, data, rd_points)
+            # change centroid based on cluster mean
+            rd_points = k_means.new_centroids(clusters)
+            
+            # checking whether the clusters are changing are not
+            temp = [len(i) for i in clusters.values()]
+            if not change_log:
+                change_log = temp
+            else:
+                if temp == change_log:
+                    counter = True
+                else:
+                    change_log = temp
+            self.points = rd_points
+            for a in rd_points:
+                plt.scatter(a[0],a[1],color = 'red', marker='*')
+
+            plt.scatter(data[:,0], data[:,1], c=k_means.labels(self).astype(float))
+            plt.show()
+            iteration+=1
+        print("Total iterations : {}".format(iteration))      
+        self.points = rd_points
+        self.data = data
+        return rd_points
+        
+
+model2 = k_means(4)
+centroids = model2.fit(x_trans)
+dataset['cluster'] = model2.labels()
+plt.figure(figsize=(8, 6))
+
+for a in centroids:
+    plt.scatter(a[0],a[1],marker = '*',color='red')
+plt.scatter(x_trans[:,0], x_trans[:,1], c=dataset['cluster'].astype(float))
+plt.show()
+
+def seg(str_x, str_y, clusters):
+    x = []
+    y = []
+    for i in range(clusters):
+        x.append(dataset[str_x][dataset['cluster']==i])
+        y.append(dataset[str_y][dataset['cluster']==i])
+    return x,y
+
+def seg(str_x, clusters,ind):
+    x = []
+    x.append(dataset[str_x][dataset['cluster']==clusters]-ind)
+    return x
+
+def plot_hist(col):
+    plt.figure(figsize=(6,4), dpi = 120)
+    ind = -0.4
+    # for col in dataset.drop('cluster',axis = 'columns').columns:
+    #     plt.subplot(13,1,ind)
+    for i in range(4):
+        x = seg(col,i,ind)
+        plt.hist(x,width = 0.2,label = 'cluster{}'.format(i))
+        ind = ind+0.2
+    plt.xlabel(col)
+    plt.ylabel("Faculty count")
+
+    plt.legend()
+
+for col in dataset.columns:
+    plot_hist(col)
+
+def grade(i):
+    arr = dataset[dataset['cluster']==i]
+    total = len(arr)
+    sum = 0
+    for i in range(total):
+        for j in range(12):
+            sum += arr.iloc[i][j]
+    return sum
+
+clusters = []
+total = 0
+for i in range(4):
+    clusters.append(grade(i))
+    total += clusters[i]
+for i in range(4):
+    clusters[i] = round(100*clusters[i]/total,2)
+clusters
+
+lab1 = ['cluster0','cluster1','cluster2','cluster3']
+fig = plt.figure()
+ax = fig.add_axes([0,0,1,1])
+ax.axis('equal')
+ax.pie(clusters, labels = lab1,autopct='%1.2f%%', shadow = True)
+plt.legend(labels = lab1)
+
+clusters = []
+total = 0
+for i in range(4):
+    clusters.append(grade(i))
+    total += clusters[i]
+for i in range(4):
+    clusters[i] = round(100*clusters[i]/total,2)
+clusters
+lab = ['Poor','Good','Excellent','Average']
+fig = plt.figure()
+ax = fig.add_axes([0,0,1,1])
+ax.axis('equal')
+ax.pie(clusters, labels = lab,autopct='%1.2f%%', shadow = True)
+plt.legend(labels = lab)
+plt.show()
+
+dataset['cluster'].replace(0,'Poor', inplace = True)
+dataset['cluster'].replace(1,'Good', inplace = True)
+dataset['cluster'].replace(2,'Excellent', inplace = True)
+dataset['cluster'].replace(3,'Average', inplace = True)
+
+dataset.rename(columns = {'cluster':'Grade'}, inplace = True)
+original_dataset['Grade'] = dataset['Grade']
+
+
+original_dataset.head(20)
